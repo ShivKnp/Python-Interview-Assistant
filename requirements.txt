@@ -34,7 +34,7 @@ slowapi>=0.1.9
 
 # ── Async SQLite (Memory) ─────────────────────────────────────────────────────
 aiosqlite>=0.20.0
-libsql-client>=0.4.0
+libsql-client>=0.3.0
 aiofiles>=23.0.0
 
 # ── Document Parsing (Enterprise Upload) ──────────────────────────────────────
