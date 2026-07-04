@@ -118,21 +118,29 @@ class UserAuthSchema(BaseModel):
 
 async def get_current_user(
     x_guest_user: str | None = Header(default=None),
+    x_session_token: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
     session_token: str | None = Cookie(default=None)
 ) -> str:
     # 1. Guest Mode Bypass
     if x_guest_user and x_guest_user.startswith("guest-"):
         return x_guest_user
 
-    # 2. Session Cookie Check
-    if not session_token:
+    # 2. Extract token from cookie, header, or Bearer auth
+    token = session_token
+    if not token and x_session_token:
+        token = x_session_token
+    if not token and authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+
+    if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     async with connect_db() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT username, expires_at FROM user_sessions WHERE token=?",
-            (session_token,)
+            (token,)
         ) as cur:
             row = await cur.fetchone()
 
@@ -179,7 +187,7 @@ async def signup(body: UserAuthSchema, response: Response):
         await db.commit()
 
     response.set_cookie(key="session_token", value=token, httponly=True, max_age=3600*24*7, samesite="none", secure=True)
-    return {"status": "registered", "username": username}
+    return {"status": "registered", "username": username, "session_token": token}
 
 
 @app.post("/login", tags=["Auth"])
@@ -207,7 +215,7 @@ async def login(body: UserAuthSchema, response: Response):
         await db.commit()
 
     response.set_cookie(key="session_token", value=token, httponly=True, max_age=3600*24*7, samesite="none", secure=True)
-    return {"status": "logged_in", "username": username}
+    return {"status": "logged_in", "username": username, "session_token": token}
 
 
 @app.post("/logout", tags=["Auth"])

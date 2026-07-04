@@ -855,6 +855,12 @@ async function authFetch(url, options = {}) {
   if (!options.headers) options.headers = {};
   if (S.isGuest && S.userId) {
     options.headers['X-Guest-User'] = S.userId;
+  } else {
+    const token = localStorage.getItem('pymind_token');
+    if (token) {
+      options.headers['X-Session-Token'] = token;
+      options.headers['Authorization'] = 'Bearer ' + token;
+    }
   }
   const r = await fetch(url, options);
   if (r.status === 401) {
@@ -911,6 +917,10 @@ async function handleAuth(e) {
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || 'Authentication failed');
 
+    if (d.session_token) {
+      localStorage.setItem('pymind_token', d.session_token);
+    }
+
     S.userId = username;
     S.isGuest = false;
     hideLogin();
@@ -958,10 +968,17 @@ async function handleLogout() {
   if (S.loading) { toast('Please wait until response completes', true); return; }
   try {
     if (!S.isGuest) {
-      await fetch('/logout', { method: 'POST' });
+      const headers = {};
+      const token = localStorage.getItem('pymind_token');
+      if (token) {
+        headers['X-Session-Token'] = token;
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+      await fetch('/logout', { method: 'POST', headers });
     }
   } catch {}
   
+  localStorage.removeItem('pymind_token');
   S.userId = null;
   S.isGuest = false;
   S.sessionId = null;
