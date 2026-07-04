@@ -1,6 +1,8 @@
 # 🐍 PyMind — Enterprise Python AI Assistant
 
 > A premium, production-grade 12-stage RAG-powered Python assistant — grounded in 607K+ Stack Overflow posts, custom user document uploads, and dynamic Tavily Web Search fallback.
+> 
+> **Active Deployment**: [Hugging Face Space](https://huggingface.co/spaces/fearman99/python-interview-assistant)
 
 ---
 
@@ -158,4 +160,4 @@ dev/
 ---
 
 ## 📄 License
-This project is open-source. Stack Overflow dataset source is under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
+This project is open-source. Stack Overflow dataset source is retrieved from the [Kaggle Stack Overflow Python Questions Dataset](https://www.kaggle.com/datasets/stackoverflow/pythonquestions) and licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
