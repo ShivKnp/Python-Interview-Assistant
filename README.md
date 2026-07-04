@@ -11,12 +11,6 @@ app_port: 7860
 
 > A premium, production-grade 12-stage RAG-powered Python assistant — grounded in 607K+ Stack Overflow posts, custom user document uploads, and dynamic Tavily Web Search fallback.
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![LangChain](https://img.shields.io/badge/LangChain-0.3+-1C3C3C?logo=langchain&logoColor=white)](https://langchain.com)
-[![Turso](https://img.shields.io/badge/Turso_DB-SQLite_Cloud-000000?logo=sqlite&logoColor=white)](https://turso.tech)
-[![Gemini](https://img.shields.io/badge/Gemini_1.5_Flash-Free_Tier-4285F4?logo=google&logoColor=white)](https://ai.google.dev)
-
 ---
 
 ## 🌟 Key Features
