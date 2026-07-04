@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN useradd -m -u 1000 user
 WORKDIR /home/user/app
 
+# Create runtime directories and set ownership before switching user
+RUN mkdir -p ./data ./logs ./uploads && chown -R user:user /home/user/app
+
 # ── Python dependencies ───────────────────────────────────────────────────────
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -22,9 +25,6 @@ RUN python -c "from langchain_huggingface import HuggingFaceEmbeddings; HuggingF
 # ── Copy application code + pre-built vector store ────────────────────────────
 COPY --chown=user app/ ./app/
 COPY --chown=user vectorstore/ ./vectorstore/
-
-# ── Create runtime directories ────────────────────────────────────────────────
-RUN mkdir -p ./data ./logs ./uploads
 
 # ── Port & Start ──────────────────────────────────────────────────────────────
 EXPOSE 7860
