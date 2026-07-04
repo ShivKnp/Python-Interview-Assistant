@@ -106,20 +106,33 @@ class LibsqlConnectionWrapper:
         pass
 
 
+_global_client = None
+
+
+async def close_db():
+    """Close the global database client if active."""
+    global _global_client
+    if _global_client is not None:
+        await _global_client.close()
+        _global_client = None
+
+
 @asynccontextmanager
 async def connect_db():
     """Yield a database connection wrapper based on active settings (Turso vs. local sqlite)."""
+    global _global_client
     settings = get_settings()
     if settings.TURSO_DATABASE_URL and settings.TURSO_AUTH_TOKEN:
-        url = settings.TURSO_DATABASE_URL
-        if url.startswith("libsql://"):
-            url = "https://" + url[len("libsql://"):]
-        import libsql_client
-        async with libsql_client.create_client(
-            url=url,
-            auth_token=settings.TURSO_AUTH_TOKEN
-        ) as client:
-            yield LibsqlConnectionWrapper(client)
+        if _global_client is None:
+            url = settings.TURSO_DATABASE_URL
+            if url.startswith("libsql://"):
+                url = "https://" + url[len("libsql://"):]
+            import libsql_client
+            _global_client = libsql_client.create_client(
+                url=url,
+                auth_token=settings.TURSO_AUTH_TOKEN
+            )
+        yield LibsqlConnectionWrapper(_global_client)
     else:
         db_path = settings.DB_PATH
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)

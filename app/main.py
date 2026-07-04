@@ -54,7 +54,7 @@ from app.observability.logger import logger
 from app.observability.metrics import metrics
 from app.pipeline.graph import EnterpriseRAGPipeline
 from app.utils.auth_utils import hash_password, verify_password
-from app.memory.database import connect_db
+from app.memory.database import connect_db, close_db
 import aiosqlite
 
 # ─── Global state ─────────────────────────────────────────────────────────────
@@ -73,6 +73,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"✅ Ready — {pipeline.get_doc_count():,} chunks indexed")
     yield
     logger.info("👋 Shutting down gracefully...")
+    await close_db()
 
 
 # ─── Rate Limiter ─────────────────────────────────────────────────────────────
