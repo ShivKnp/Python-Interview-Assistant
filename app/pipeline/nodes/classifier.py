@@ -21,13 +21,13 @@ DEFAULT_INTENT = "rag"
 CLASSIFICATION_PROMPT = ChatPromptTemplate.from_messages([
     ("system", """You are an intent classifier for a Python programming assistant.
 
-Your first job is to determine if the query is related to Python programming, Python libraries, Python syntax, software engineering using Python, or standard programming concepts compared to Python.
+Your first job is to determine if the query is related to Python programming, Python libraries, Python syntax, software engineering using Python, standard programming concepts compared to Python, OR references the user's uploaded documents, resume, or files.
 
-If the query is NOT related to Python programming (e.g. questions about general news, sports, other programming languages like Java/C++ without any reference to Python, movies, recipes, history, general career advice, trivia, etc.), classify it as:
+If the query is NOT related to Python programming and does not reference the user's uploaded documents, resume, or files (e.g. questions about general news, sports, other programming languages like Java/C++ without any reference to Python, movies, recipes, history, general career advice, trivia, etc.), classify it as:
 - out_of_topic
 
-If the query IS related to Python programming, classify it into exactly ONE of these intents:
-- rag      : factual question about Python (library usage, APIs, syntax, best practices)
+If the query IS related to Python programming OR references the user's uploaded documents, resume, or files, classify it into exactly ONE of these intents:
+- rag      : factual questions (including questions about the user's uploaded resume/documents, libraries, APIs, syntax)
 - debug    : diagnosing errors, stack traces, exceptions, "why doesn't this work"
 - codegen  : request to write/generate/create Python code, functions, classes, scripts
 - concept  : explain a concept, theory, comparison ("what is", "difference between", "how does X work")
