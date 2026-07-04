@@ -1,0 +1,48 @@
+# ── Core Framework ────────────────────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-multipart>=0.0.9
+python-dotenv>=1.0.0
+
+# ── LangChain / LangGraph ─────────────────────────────────────────────────────
+langchain>=0.3.0
+langchain-google-genai>=2.0.0
+langchain-community>=0.3.0
+langchain-chroma>=0.2.0
+langchain-huggingface>=0.0.3
+langgraph>=0.2.0
+langchain-text-splitters>=0.3.0
+
+# ── Vector Store & Embeddings ─────────────────────────────────────────────────
+chromadb>=0.5.0
+sentence-transformers>=2.6.1
+
+# ── LLM Providers ────────────────────────────────────────────────────────────
+google-generativeai>=0.8.0
+
+# ── Hybrid Retrieval ──────────────────────────────────────────────────────────
+rank-bm25>=0.2.2
+
+# ── Web Search ────────────────────────────────────────────────────────────────
+tavily-python>=0.3.0
+
+# ── SSE Streaming & Rate Limiting ─────────────────────────────────────────────
+sse-starlette>=1.8.0
+slowapi>=0.1.9
+
+# ── Async SQLite (Memory) ─────────────────────────────────────────────────────
+aiosqlite>=0.20.0
+libsql-client>=0.4.0
+aiofiles>=23.0.0
+
+# ── Document Parsing (Enterprise Upload) ──────────────────────────────────────
+pypdf>=3.0.0
+python-docx>=1.1.0
+
+# ── Data Processing & Ingestion ───────────────────────────────────────────────
+pandas>=2.0.0
+beautifulsoup4>=4.12.0
+tqdm>=4.66.0
+lxml>=5.0.0

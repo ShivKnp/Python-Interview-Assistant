@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: python-qa-assistant
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: VECTORSTORE_PATH
+        value: ./vectorstore
+      - key: MODEL_NAME
+        value: gemini-3.1-flash-lite
+      - key: TOP_K
+        value: "6"
+      - key: COLLECTION_NAME
+        value: python_qa

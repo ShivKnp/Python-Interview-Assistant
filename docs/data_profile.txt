@@ -1,0 +1,23 @@
+DATA PROFILING REPORT
+==================================================
+
+Total Questions:            607,282
+Total Answers:              987,122
+Date Range:                 2008-08-02T15:11:16Z → 2016-10-19T23:55:49Z
+Question Score (mean):      2.3
+Question Score (median):    1
+Questions with Answers:     88.8%
+Avg Answers per Question:   1.8
+Unique Tags:                16,895
+
+Top 10 Tags (besides python):
+  django                      62,818
+  python-2.7                  34,616
+  pandas                      26,854
+  python-3.x                  26,814
+  numpy                       25,848
+  list                        18,951
+  matplotlib                  16,521
+  regex                       14,047
+  dictionary                  13,413
+  tkinter                     10,766

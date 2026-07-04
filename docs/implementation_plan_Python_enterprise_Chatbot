@@ -1,0 +1,523 @@
+# Enterprise Multi-Agent AI Assistant — Implementation Plan v2
+
+## Current State → Target State
+
+| Dimension | Current (Medium RAG) | Target (Enterprise) |
+|---|---|---|
+| Pipeline | 3 nodes: retrieve → grade → generate | 13-stage deep pipeline |
+| Retrieval | Vector-only (ChromaDB MMR) | Hybrid: Vector + BM25 with re-ranking |
+| Memory | None (stateless) | SQLite-persisted sessions + conversation history |
+| Auth | None | API-key based auth middleware |
+| Safety | None | Guardrails + hallucination check + citation verification |
+| Search | Static KB only | KB + user-uploaded docs + Tavily web fallback |
+| UI | Single-query embedded HTML | Premium multi-turn chat with pipeline trace panel |
+| Observability | `print()` statements | Structured JSON logging, per-node latency metrics |
+
+---
+
+## Target Architecture: 13-Stage Deep Pipeline
+
+Every user query flows through all 13 stages as LangGraph nodes. Intent classification at stage 3 determines *how* downstream stages behave (prompt selection, retrieval corpus, guardrail strictness), not which stages run.
+
+```
+User
+  │
+  ▼
+① Authentication          ─ API key / JWT validation
+  │
+  ▼
+② Query Validation        ─ Length, PII, language, abuse detection
+  │
+  ▼
+③ Intent Classification   ─ Route: rag | debug | codegen | concept
+  │
+  ▼
+④ Query Rewriting         ─ Expand, disambiguate, multi-query generation
+  │
+  ▼
+⑤ Hybrid Retrieval        ─ Vector (ChromaDB) + BM25 → merged results
+  │              └──────── User-doc namespace search (Enterprise)
+  │              └──────── Tavily web fallback (if KB score < threshold)
+  ▼
+⑥ Re-ranking              ─ Cross-score fusion, MMR diversity filter
+  │
+  ▼
+⑦ Context Compression     ─ Trim to token budget, summarize stale chunks
+  │
+  ▼
+⑧ Hallucination Check     ─ Pre-generation: "Can context support an answer?"
+  │
+  ▼
+⑨ Answer Generation       ─ Intent-specific prompts, conversation history injected
+  │
+  ▼
+⑩ Citation Verification   ─ Verify answer cites real source IDs from context
+  │
+  ▼
+⑪ Safety / Guardrails     ─ Toxic content, off-topic, injection detection
+  │
+  ▼
+⑫ Logging & Observability ─ Structured log per stage, latency, token counts
+  │
+  ▼
+⑬ User Feedback Loop      ─ Tag response ID for async thumbs up/down
+  │
+  ▼
+Streaming Response (SSE)
+```
+
+---
+
+## New File Structure
+
+```
+app/
+├── __init__.py
+├── config.py                [MODIFY]
+├── main.py                  [MODIFY] — API endpoints, middleware, SSE streaming
+├── schemas.py               [NEW]    — All Pydantic models
+├── ingest.py                [MODIFY] — Add BM25 index build step
+│
+├── pipeline/                [NEW DIR]
+│   ├── __init__.py
+│   ├── state.py             — PipelineState TypedDict (shared across all nodes)
+│   ├── graph.py             — LangGraph graph assembly + compile
+│   └── nodes/
+│       ├── __init__.py
+│       ├── auth.py          — Node ①: Authentication
+│       ├── validator.py     — Node ②: Query Validation
+│       ├── classifier.py    — Node ③: Intent Classification
+│       ├── rewriter.py      — Node ④: Query Rewriting
+│       ├── retriever.py     — Node ⑤: Hybrid Retrieval
+│       ├── reranker.py      — Node ⑥: Re-ranking
+│       ├── compressor.py    — Node ⑦: Context Compression
+│       ├── hallucination.py — Node ⑧: Hallucination Check
+│       ├── generator.py     — Node ⑨: Answer Generation
+│       ├── citation.py      — Node ⑩: Citation Verification
+│       ├── guardrails.py    — Node ⑪: Safety / Guardrails
+│       └── observer.py      — Node ⑫: Logging & Observability
+│
+├── memory/                  [NEW DIR]
+│   ├── __init__.py
+│   ├── database.py          — SQLAlchemy SQLite engine + Base
+│   ├── models.py            — ORM: Session, Message, Feedback, UserDocument
+│   └── session_store.py     — CRUD helpers for sessions and chat history
+│
+├── upload/                  [NEW DIR — Enterprise Feature]
+│   ├── __init__.py
+│   ├── processor.py         — Parse PDF/DOCX/TXT/MD → LangChain Documents
+│   └── namespace.py         — Per-user ChromaDB collection management
+│
+├── tools/                   [NEW DIR]
+│   └── web_search.py        — Tavily search (fallback when KB score < threshold)
+│
+└── observability/           [NEW DIR]
+    ├── __init__.py
+    ├── logger.py            — Structured JSON logger (replaces all print())
+    └── metrics.py           — In-memory query/latency metrics store
+```
+
+---
+
+## Proposed Changes — Detailed
+
+### Phase 1 — Pipeline State & Graph Foundation
+
+#### [NEW] `app/pipeline/state.py`
+A single `PipelineState` TypedDict flows through all 13 nodes. Key fields:
+
+```python
+class PipelineState(TypedDict):
+    # Input
+    raw_query: str
+    session_id: str
+    user_id: str
+    api_key: str
+    
+    # Auth & Validation
+    is_authenticated: bool
+    is_valid_query: bool
+    validation_error: str | None
+    
+    # Classification & Rewriting
+    intent: str           # "rag" | "debug" | "codegen" | "concept"
+    rewritten_queries: list[str]  # expanded query variants
+    
+    # Retrieval
+    retrieved_docs: list[Document]
+    bm25_docs: list[Document]
+    web_docs: list[Document]      # Tavily results
+    user_docs: list[Document]     # from uploaded documents
+    
+    # Post-retrieval
+    reranked_docs: list[Document]
+    compressed_context: str
+    retrieval_score: float        # overall confidence score
+    
+    # Generation
+    can_answer: bool              # hallucination pre-check result
+    generation: str
+    citations: list[dict]         # verified source references
+    is_safe: bool                 # guardrails result
+    
+    # Metadata (for UI trace panel)
+    pipeline_trace: list[dict]    # [{node, latency_ms, status}]
+    response_id: str              # UUID for feedback linking
+    confidence: str               # "high" | "medium" | "low"
+    
+    # Memory
+    conversation_history: list[dict]
+```
+
+#### [NEW] `app/pipeline/graph.py`
+- Assembles all 13 nodes into a `StateGraph`
+- Adds conditional edges: if `is_authenticated=False` → route to error response
+- If `is_valid_query=False` → route to error response
+- If `can_answer=False` → skip generation, trigger Tavily fallback
+- If `is_safe=False` → block response, return safety message
+- Compiles to a `CompiledGraph` singleton
+
+---
+
+### Phase 2 — 13 Pipeline Nodes
+
+#### [NEW] `app/pipeline/nodes/auth.py` — Node ①
+- Reads `X-API-Key` header from request
+- Validates against `API_KEY` in `.env` (simple) or SQLite user table
+- Sets `is_authenticated = True/False`
+- On failure: returns `401` immediately (conditional edge exits pipeline)
+- Future-ready: JWT decode skeleton with `python-jose`
+
+#### [NEW] `app/pipeline/nodes/validator.py` — Node ②
+- Min/max length check (3–2000 chars)
+- Basic PII detection: email regex, phone regex, card-like patterns → warn + strip
+- Language detection: non-English queries flagged with a note
+- Profanity/abuse pre-filter (word list)
+- Sets `is_valid_query`, `validation_error`
+
+#### [NEW] `app/pipeline/nodes/classifier.py` — Node ③
+Intent classification using Gemini with a structured output prompt:
+```
+intents:
+  rag      → factual question about Python, library usage, Stack Overflow-style
+  debug    → error message, stack trace, "why doesn't this work"
+  codegen  → "write me", "create a function", "generate", "implement"
+  concept  → "explain", "what is", "difference between", "how does X work"
+```
+- Returns `intent` string, stored in state
+- Downstream nodes (generator, prompts) switch behavior based on this
+
+#### [NEW] `app/pipeline/nodes/rewriter.py` — Node ④
+- Uses Gemini to expand the query into 2–3 sub-queries for better recall
+- Adds HyDE (Hypothetical Document Embedding) variant: generate a "fake" ideal answer, use it as embedding query
+- Stores `rewritten_queries: list[str]` for use in retrieval
+
+#### [NEW] `app/pipeline/nodes/retriever.py` — Node ⑤ (Core Enhancement)
+
+**Vector Search:**
+- Searches ChromaDB with each rewritten query, deduplicates results
+- Searches user-document namespace if `user_id` has uploaded files
+
+**BM25 Search:**
+- Uses `rank_bm25` library on an in-memory BM25 index built at startup from the ChromaDB corpus
+- BM25 index stored as a pickle file at `./vectorstore/bm25_index.pkl`
+- Searches with the original + rewritten queries
+
+**Tavily Fallback:**
+- If `max(vector_score) < RETRIEVAL_THRESHOLD` → call Tavily API
+- Searches for Python-specific answers on Stack Overflow, docs.python.org
+- Results wrapped as `Document` objects with `source: "web"` metadata
+
+**Result merge:** vector docs + BM25 docs + web docs → `retrieved_docs`
+
+#### [NEW] `app/pipeline/nodes/reranker.py` — Node ⑥
+- Applies Reciprocal Rank Fusion (RRF) to merge vector and BM25 ranked lists
+- Scores each doc: `RRF_score = Σ 1/(k + rank_i)` across retrieval sources
+- Applies MMR (Maximum Marginal Relevance) for diversity filtering
+- Outputs top-K `reranked_docs` (configurable, default 5)
+
+#### [NEW] `app/pipeline/nodes/compressor.py` — Node ⑦
+- Counts token budget (default 3000 tokens for context)
+- If docs exceed budget: LLM-based extractive compression (summarize each doc to key sentences relevant to the query)
+- Assembles `compressed_context` string with source attribution per doc
+
+#### [NEW] `app/pipeline/nodes/hallucination.py` — Node ⑧
+- Pre-generation grounding check:
+  - Uses Gemini: "Given these documents, can you provide a factual answer to: {query}? Answer yes or no."
+- If `no`: sets `can_answer = False` → triggers Tavily fallback retrieval before generation
+- If `yes`: sets `can_answer = True` → proceeds to generation
+- Also calculates `retrieval_score` (fraction of docs with high relevance)
+
+#### [NEW] `app/pipeline/nodes/generator.py` — Node ⑨
+4 intent-specific system prompts (selected by `intent` from Node ③):
+- **rag**: "Ground your answer strictly in the provided Stack Overflow context…"
+- **debug**: "Diagnose the error methodically. Identify root cause, explain why it happens, give a fix…"
+- **codegen**: "Generate clean, well-commented Python code. Follow PEP 8. Include usage examples…"
+- **concept**: "Explain the concept clearly with analogies. Include comparisons where relevant…"
+
+Injects `conversation_history` (last N turns from SQLite) for multi-turn coherence.
+Uses streaming via `astream` for SSE response.
+
+#### [NEW] `app/pipeline/nodes/citation.py` — Node ⑩
+- Post-generation: verifies the generated answer references real source IDs
+- Extracts any `Q#XXXXX` or URL references from the generated text
+- Validates them against `retrieved_docs` metadata
+- Appends verified `citations` list (question_id, title, score, source_type)
+- Removes or flags fabricated citations
+
+#### [NEW] `app/pipeline/nodes/guardrails.py` — Node ⑪
+- Checks output for:
+  - **Harmful content**: Gemini safety categories check
+  - **Off-topic**: if intent=rag but answer discusses non-Python topics
+  - **Prompt injection**: detects "ignore previous instructions" style patterns in the *input*
+  - **PII leakage**: scans output for email/phone patterns accidentally echoed back
+- Sets `is_safe = True/False`
+- If unsafe: replaces answer with a safe refusal message
+
+#### [NEW] `app/pipeline/nodes/observer.py` — Node ⑫
+- Writes a structured JSON log entry per request to `./logs/pipeline.jsonl`
+- Records: timestamp, session_id, intent, query, latency per node, token estimates, confidence, is_safe
+- Updates in-memory metrics counters (total queries, intent distribution, avg latency)
+- Persists the conversation turn to SQLite (Message record)
+
+---
+
+### Phase 3 — Memory & SQLite Persistence
+
+#### [NEW] `app/memory/database.py`
+```python
+# SQLAlchemy async engine
+engine = create_async_engine("sqlite+aiosqlite:///./data/enterprise_rag.db")
+```
+
+#### [NEW] `app/memory/models.py`
+Four ORM tables:
+
+| Table | Columns |
+|---|---|
+| `sessions` | id, user_id, created_at, last_active_at, title |
+| `messages` | id, session_id, role (user/assistant), content, intent, confidence, timestamp |
+| `feedback` | id, response_id, session_id, rating (1/-1), comment, timestamp |
+| `user_documents` | id, user_id, filename, file_type, collection_name, chunk_count, uploaded_at |
+
+#### [NEW] `app/memory/session_store.py`
+- `create_session(user_id)` → session_id
+- `get_history(session_id, last_n=10)` → list of messages
+- `save_message(session_id, role, content, metadata)`
+- `list_sessions(user_id)` → session summaries
+- `delete_session(session_id)`
+
+---
+
+### Phase 4 — Enterprise Document Upload Feature
+
+> [!IMPORTANT]
+> This is the key enterprise differentiator — users can upload their own codebases, docs, or README files and ask questions about *their specific project*, in addition to the global Stack Overflow KB.
+
+#### [NEW] `app/upload/processor.py`
+Supported formats: **PDF, DOCX, TXT, MD, PY**
+- `pypdf2` for PDF extraction
+- `python-docx` for DOCX
+- Raw text for TXT/MD/PY
+- Cleans, chunks, embeds using existing `HuggingFaceEmbeddings`
+- Returns `list[Document]` with metadata `{source: filename, user_id, doc_id}`
+
+#### [NEW] `app/upload/namespace.py`
+- Creates per-user ChromaDB collection: `user_docs_{user_id}`
+- `add_documents(user_id, docs)` → index to user namespace
+- `search_user_docs(user_id, query, k=5)` → retrieval from user namespace
+- `list_user_docs(user_id)` → document metadata list
+- `delete_document(user_id, doc_id)` → remove from collection
+
+#### New API Endpoints for Upload:
+```
+POST   /upload                 — Upload document (PDF/DOCX/TXT/MD/PY)
+GET    /documents              — List my uploaded documents
+DELETE /documents/{doc_id}     — Delete a document
+GET    /documents/{doc_id}/chunks — Preview indexed chunks
+```
+
+---
+
+### Phase 5 — Observability
+
+#### [NEW] `app/observability/logger.py`
+- Replaces all `print()` calls with structured JSON logging
+- Log format: `{"timestamp": ..., "level": ..., "node": ..., "session_id": ..., "msg": ..., "data": {}}`
+- Writes to `./logs/pipeline.jsonl` (rotating, max 50MB)
+- Also streams to stdout for Render/Docker log aggregation
+
+#### [NEW] `app/observability/metrics.py`
+In-memory `MetricsStore`:
+- `query_count` (total, by intent)
+- `avg_latency_ms` (total pipeline, per node)
+- `tavily_fallback_rate`
+- `hallucination_rate` (fraction where `can_answer=False`)
+- `safety_block_rate`
+- `user_doc_hit_rate`
+
+Exposed at `GET /metrics` as JSON (Prometheus-compatible text format optional).
+
+---
+
+### Phase 6 — API Layer
+
+#### [MODIFY] [main.py](file:///c:/Users/Shiva/OneDrive/Desktop/dev/app/main.py)
+
+**New endpoints:**
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/chat` | Multi-turn chat (replaces `/ask`) |
+| GET | `/stream/{session_id}` | SSE streaming for last response |
+| POST | `/sessions` | Create a new session |
+| GET | `/sessions` | List sessions for authenticated user |
+| GET | `/sessions/{id}/history` | Full conversation history |
+| DELETE | `/sessions/{id}` | Delete session + messages |
+| POST | `/feedback` | Submit thumbs up/down + comment |
+| POST | `/upload` | Upload a document |
+| GET | `/documents` | List uploaded documents |
+| DELETE | `/documents/{id}` | Delete document |
+| GET | `/metrics` | System metrics JSON |
+| GET | `/health` | Enhanced health (now includes BM25 status, SQLite status) |
+
+**Middleware:**
+- `slowapi` rate limiter: 30 req/min per API key
+- Request ID middleware: injects `X-Request-ID` header
+- Auth middleware: validates `X-API-Key` before routing (except `/health`, `/docs`)
+
+#### [NEW] `app/schemas.py`
+All Pydantic v2 models:
+- `ChatRequest(question, session_id, user_id, include_user_docs: bool)`
+- `ChatResponse(answer, citations, intent, confidence, response_id, pipeline_trace, response_time_ms)`
+- `SessionInfo(session_id, title, created_at, message_count)`
+- `FeedbackRequest(response_id, session_id, rating, comment)`
+- `UploadResponse(doc_id, filename, chunk_count, status)`
+- `MetricsResponse(query_count, avg_latency_ms, intent_distribution, ...)`
+
+---
+
+### Phase 7 — Premium Chat UI (Complete Redesign)
+
+#### [MODIFY] [main.py](file:///c:/Users/Shiva/OneDrive/Desktop/dev/app/main.py) — `/` route HTML
+
+Full redesign, served as a single-file SPA:
+
+**Layout — 3 panels:**
+```
+┌──────────────┬─────────────────────────┬──────────────┐
+│  Left Panel  │     Chat Area           │ Right Panel  │
+│              │                         │              │
+│ • Sessions   │  [Message bubbles]      │ Pipeline     │
+│   list       │                         │ Trace        │
+│              │  ┌─────────────────┐    │              │
+│ • Uploaded   │  │  Input + Send   │    │ • Node ①②③  │
+│   Docs       │  └─────────────────┘    │   latency    │
+│              │                         │              │
+│ • Upload btn │                         │ • Sources    │
+└──────────────┴─────────────────────────┴──────────────┘
+```
+
+**UI Features:**
+- 💬 **Multi-turn chat bubbles** — user right, AI left, avatar icons
+- 🔀 **Intent badge** on each AI response (🔍 RAG | 🐛 Debug | ⚙️ CodeGen | 📚 Concept)
+- ⚡ **SSE streaming** — tokens appear character-by-character as LLM generates
+- 📊 **Pipeline Trace Panel** — right sidebar showing all 13 nodes, ✅/⚠️ status, ms latency each
+- 📁 **Document Upload Panel** — drag & drop area, file list with delete button
+- 🕐 **Session Sidebar** — list of past sessions, click to restore full history
+- 🎨 **Dark glassmorphism** — `#090d16` base, frosted glass cards, purple/indigo accent
+- 💡 **Suggested follow-ups** — 3 clickable question chips after each response
+- 👍👎 **Inline feedback** — thumbs up/down per response, optional comment
+- 📋 **Code blocks** — syntax highlighted with one-click copy button
+- 📱 **Responsive** — collapses to single column on mobile (panels become drawers)
+
+---
+
+### Phase 8 — Infrastructure
+
+#### [MODIFY] [requirements.txt](file:///c:/Users/Shiva/OneDrive/Desktop/dev/requirements.txt)
+Add:
+```
+rank-bm25>=0.2.2          # BM25 retrieval
+tavily-python>=0.3.0      # Web search fallback
+sse-starlette>=1.8.0      # Server-Sent Events streaming
+slowapi>=0.1.9            # Rate limiting
+sqlalchemy>=2.0.0         # ORM for SQLite
+aiosqlite>=0.20.0         # Async SQLite driver
+pypdf2>=3.0.0             # PDF parsing
+python-docx>=1.1.0        # DOCX parsing
+aiofiles>=23.0.0          # Async file I/O for uploads
+python-multipart>=0.0.9   # File upload support in FastAPI
+```
+
+#### [MODIFY] [Dockerfile](file:///c:/Users/Shiva/OneDrive/Desktop/dev/Dockerfile)
+- Multi-stage build
+- Add `RUN mkdir -p /app/data /app/logs`
+- Non-root user `appuser`
+- HEALTHCHECK instruction
+
+#### [MODIFY] [.env](file:///c:/Users/Shiva/OneDrive/Desktop/dev/.env)
+New required variables:
+```
+TAVILY_API_KEY=...
+API_KEY=...           # Secret key users must pass in X-API-Key header
+RETRIEVAL_THRESHOLD=0.4  # Minimum vector score before Tavily fallback
+MAX_HISTORY_TURNS=10
+MAX_UPLOAD_SIZE_MB=20
+```
+
+#### [MODIFY] [render.yaml](file:///c:/Users/Shiva/OneDrive/Desktop/dev/render.yaml)
+- Add persistent disk for SQLite at `/app/data`
+- Add new env vars
+
+---
+
+## Verification Plan
+
+### Automated Tests (extend `test_api.py`)
+| Test | Endpoint | Verifies |
+|---|---|---|
+| Auth fail | POST `/chat` (no API key) | Returns 401 |
+| Auth pass | POST `/chat` (valid key) | Returns 200 |
+| Intent: rag | POST `/chat` "How do I sort a dict?" | `intent == "rag"` |
+| Intent: debug | POST `/chat` "TypeError: NoneType..." | `intent == "debug"` |
+| Intent: codegen | POST `/chat` "Write a CSV parser" | `intent == "codegen"` |
+| Multi-turn | 3x POST `/chat` same `session_id` | History in response |
+| Feedback | POST `/feedback` with `response_id` | 200 + DB record |
+| Upload | POST `/upload` (test.txt) | `chunk_count > 0` |
+| Doc search | POST `/chat` with `include_user_docs=true` | `source: "user_doc"` in citations |
+| Metrics | GET `/metrics` | All counters present |
+| Safety block | POST `/chat` (harmful query) | `is_safe: false` message |
+
+### Manual Verification
+1. Open UI → verify 3-panel layout renders
+2. Ask a question → watch streaming tokens appear in real time
+3. Check Pipeline Trace Panel → all 13 nodes appear with latency
+4. Upload a PDF → verify doc appears in left panel
+5. Ask question about uploaded doc → verify citation shows `source: user_doc`
+6. Start new session, return to old one → verify history restored
+7. Submit feedback → verify stored in DB via `/metrics`
+
+---
+
+## Implementation Order
+
+```
+Phase 1: Pipeline State & Graph foundation
+  ↓
+Phase 2: 13 nodes (core pipeline) — this is the biggest phase
+  ↓
+Phase 3: Memory / SQLite
+  ↓
+Phase 6: API Layer + schemas
+  ↓
+Phase 4: Document Upload (Enterprise Feature)
+  ↓
+Phase 7: Premium UI
+  ↓
+Phase 5: Observability (metrics, structured logging)
+  ↓
+Phase 8: Infrastructure (Dockerfile, requirements, .env)
+```
+
+Estimated files to create/modify: **~25 files**

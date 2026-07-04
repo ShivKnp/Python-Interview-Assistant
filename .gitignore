@@ -1,0 +1,48 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*]
+*$py.class
+
+# Virtual environments
+venv/
+.env
+
+# Vector store (ChromaDB persistent data)
+vectorstore/
+
+# Logs
+logs/
+*.log
+pipeline.jsonl
+
+# Data files
+data/
+*.db
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+api_test_report.pdf
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Mypy
+.mypy_cache/

@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyMind — Enterprise Python AI Assistant</title>
+<meta name="description" content="13-stage enterprise RAG pipeline for expert Python Q&A with hybrid retrieval, session memory, document upload, and real-time pipeline tracing.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link id="hljsTheme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════
+   DESIGN TOKENS — LIGHT MODE
+═══════════════════════════════════════════════════════ */
+:root {
+  --bg:            #f7f7f5;
+  --bg-warm:       #fcfcfb;
+  --surface:       #ffffff;
+  --surface2:      #ecebe8;
+  --border:        #dedbd6;
+  --border-focus:  #9a948a;
+  --accent:        #334155;
+  --accent-light:  #eef2f7;
+  --accent-soft:   #e2e8f0;
+  --accent-border: #cbd5e1;
+  --green:         #166534;
+  --green-light:   #ecfdf3;
+  --yellow:        #a16207;
+  --yellow-light:  #fefce8;
+  --red:           #b91c1c;
+  --red-light:     #fef2f2;
+  --orange:        #c2410c;
+  --purple:        #6b7280;
+  --purple-light:  #f3f4f6;
+  --text:          #111827;
+  --text-2:        #4b5563;
+  --text-3:        #6b7280;
+  --sidebar-w:     256px;
+  --radius:        8px;
+  --radius-sm:     6px;
+  --shadow-sm:     none;
+  --shadow:        none;
+  --shadow-lg:     none;
+  --code-wrap-bg:  #fafafa;
+  --code-inline-bg:#f3f4f6;
+  --code-inline-color: #b91c1c;
+  --green-border:  #a7f3d0;
+  --yellow-border: #fde68a;
+}
+
+/* ═══════════════════════════════════════════════════════
+   DESIGN TOKENS — DARK MODE
+═══════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  --bg:            #090d16;
+  --bg-warm:       #0d1322;
+  --surface:       #161f30;
+  --surface2:      #212c40;
+  --border:        #1f2a3c;
+  --border-focus:  #3b82f6;
+  --accent:        #60a5fa;
+  --accent-light:  rgba(96, 165, 250, 0.1);
+  --accent-soft:   rgba(96, 165, 250, 0.05);
+  --accent-border: rgba(96, 165, 250, 0.2);
+  --green:         #4ade80;
+  --green-light:   rgba(74, 222, 128, 0.06);
+  --green-border:  rgba(74, 222, 128, 0.2);
+  --yellow:        #facc15;
+  --yellow-light:  rgba(250, 204, 21, 0.06);
+  --yellow-border: rgba(250, 204, 21, 0.2);
+  --red:           #f87171;
+  --red-light:     rgba(248, 113, 113, 0.06);
+  --orange:        #fb923c;
+  --purple:        #c084fc;
+  --purple-light:  rgba(192, 132, 252, 0.06);
+  --text:          #f1f5f9;
+  --text-2:        #94a3b8;
+  --text-3:        #64748b;
+  --code-wrap-bg:  #0d1322;
+  --code-inline-bg:#161f30;
+  --code-inline-color: #f87171;
+  --shadow-sm:     none;
+  --shadow:        none;
+  --shadow-lg:     none;
+}
+
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+body,
+.sidebar,
+.main,
+.topbar,
+.input-box,
+.new-chat-btn,
+.upload-btn-small,
+.session-item,
+.doc-item,
+.suggestion,
+.btn,
+.drop-zone,
+.toast,
+.topbar-link,
+.sidebar-toggle,
+.send-btn,
+.toggle-sm,
+.live-dot,
+.live-sep {
+  transition: background-color 0.28s ease, color 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, opacity 0.28s ease, transform 0.28s ease;
+}
+
+.theme-transition,
+.theme-transition * {
+  transition: background-color 0.28s ease, color 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, opacity 0.28s ease, transform 0.28s ease !important;
+}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* ═══════════════════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════════════════ */
+.app { display: flex; height: 100vh; }
+
+/* ── Sidebar ── */
+.sidebar {
+  display: flex; flex-direction: column;
+  width: var(--sidebar-w); flex-shrink: 0;
+  background: var(--bg-warm);
+  border-right: 1px solid var(--border);
+  overflow: hidden; transition: width 0.25s ease;
+}
+.sidebar.collapsed { width: 0; border-right: none; }
+.sidebar-header {
+  padding: 16px 14px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; color: var(--text);
+}
+.brand-icon { display: none; }
+.brand-name { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+.brand-sub { font-size: 10.5px; color: var(--text-3); font-weight: 400; margin-top: -1px; }
+
+.new-chat-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; padding: 9px 0; margin-top: 12px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--bg); color: var(--text);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.new-chat-btn:hover { border-color: var(--border-focus); background: var(--surface); }
+
+.sidebar-label {
+  font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-3);
+  padding: 14px 14px 6px; flex-shrink: 0;
+}
+
+.session-list { overflow-y: auto; flex: 1; padding: 0 8px 8px; }
+.session-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; margin-bottom: 1px;
+  border-radius: var(--radius-sm);
+  cursor: pointer; white-space: nowrap; overflow: hidden;
+  color: var(--text-2); transition: background-color 0.12s, color 0.12s;
+}
+.session-item:hover { background: var(--surface); color: var(--text); }
+.session-item.active { background: var(--accent-light); color: var(--accent); font-weight: 500; }
+.session-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.session-del {
+  cursor: pointer; color: var(--text-3); font-size: 14px;
+  line-height: 1; padding: 0 4px; opacity: 0.3; transition: opacity 0.15s;
+  flex-shrink: 0; z-index: 10;
+}
+.session-item:hover .session-del { opacity: 0.7; }
+.session-del:hover { color: var(--red); opacity: 1 !important; }
+
+/* Documents in sidebar */
+.doc-section { border-top: 1px solid var(--border); flex-shrink: 0; }
+.doc-list { padding: 0 8px 4px; overflow-y: auto; max-height: 130px; }
+.doc-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px; border-radius: var(--radius-sm); font-size: 12px; color: var(--text-2);
+  margin-bottom: 2px; transition: background 0.1s;
+}
+.doc-item:hover { background: var(--surface); }
+.doc-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-del { cursor: pointer; color: var(--text-3); font-size: 14px; line-height: 1; padding: 0 2px; opacity: 0; transition: opacity 0.15s; }
+.doc-item:hover .doc-del { opacity: 1; }
+.doc-del:hover { color: var(--red); }
+
+.upload-btn-small {
+  display: flex; align-items: center; justify-content: center;
+  margin: 4px 12px 12px; padding: 7px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--text-2); font-size: 12px;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.upload-btn-small:hover { border-color: var(--border-focus); color: var(--text); background: var(--surface); }
+
+/* ── Main Panel ── */
+.main {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; min-width: 0; background: var(--bg);
+}
+
+/* ── Topbar ── */
+.topbar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0; background: var(--bg);
+}
+.sidebar-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-2); cursor: pointer;
+  font-size: 15px; line-height: 1;
+}
+.sidebar-toggle:hover { background: var(--bg-warm); border-color: var(--border-focus); color: var(--text); }
+.topbar-spacer { flex: 1; }
+.topbar-link {
+  padding: 4px 8px; border-radius: var(--radius-sm);
+  font-size: 12px; color: var(--text-3); text-decoration: none;
+  transition: background-color 0.12s, color 0.12s; font-weight: 500;
+}
+.topbar-link:hover { color: var(--text-2); background: var(--surface); }
+.status-pill {
+  display: none;
+}
+.status-pill.loading { display: none; }
+.status-pill .dot { display: none; }
+.status-pill.loading .dot { display: none; }
+.status-pill.loading .dot { animation: pulse 1s ease infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ── Chat Area ── */
+.chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.messages {
+  flex: 1; overflow-y: auto; padding: 0;
+}
+.messages-inner {
+  max-width: 780px; margin: 0 auto; padding: 20px 24px 100px;
+}
+
+/* ── Welcome ── */
+.welcome {
+  text-align: center; padding: 80px 20px 40px;
+}
+.welcome-icon {
+  display: none;
+}
+.welcome h2 {
+  font-size: 22px; font-weight: 600; letter-spacing: -0.02em;
+  color: var(--text); margin-bottom: 8px;
+}
+.welcome p {
+  color: var(--text-2); font-size: 14px; line-height: 1.7;
+  max-width: 480px; margin: 0 auto 24px;
+}
+.suggestions {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  max-width: 540px; margin: 0 auto;
+}
+.suggestion {
+  padding: 12px 14px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text-2); font-size: 13px; text-align: left;
+  cursor: pointer; transition: all 0.15s; line-height: 1.45;
+}
+.suggestion:hover {
+  border-color: var(--border-focus); background: var(--surface);
+  color: var(--text);
+}
+.suggestion-icon { display: none; }
+
+/* ── Message Rows ── */
+.msg-group {
+  padding: 20px 0; border-bottom: 1px solid #f0f0f0;
+  animation: fadeUp 0.3s ease;
+}
+.msg-group:last-child { border-bottom: none; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+
+/* User message */
+.user-msg {
+  font-size: 15px; color: var(--text); line-height: 1.7;
+  font-weight: 500;
+}
+
+/* ── Message Rows ── */
+.msg-group {
+  padding: 20px 0; border-bottom: 1px solid var(--border);
+  animation: fadeUp 0.3s ease;
+}
+.msg-group:last-child { border-bottom: none; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+
+/* User message */
+.user-msg {
+  font-size: 15px; color: var(--text); line-height: 1.7;
+  font-weight: 500;
+}
+
+/* AI response */
+.ai-response { margin-top: 16px; }
+.ai-label {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px;
+}
+.ai-icon {
+  display: none;
+}
+.ai-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.intent-tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.02em; text-transform: uppercase;
+}
+.tag-rag     { background: var(--accent-light); color: var(--accent); }
+.tag-debug   { background: var(--red-light);    color: var(--red); }
+.tag-codegen { background: var(--green-light);  color: var(--green); }
+.tag-concept { background: var(--purple-light); color: var(--purple); }
+.conf-label { font-size: 11px; color: var(--text-3); }
+
+/* AI content */
+.ai-content {
+  font-size: 14.5px; line-height: 1.8; color: var(--text-2);
+}
+.ai-content p { margin-bottom: 12px; }
+.ai-content p:last-child { margin-bottom: 0; }
+.ai-content ul, .ai-content ol { margin: 8px 0 12px 22px; }
+.ai-content li { margin-bottom: 4px; }
+.ai-content li::marker { color: var(--text-3); }
+.ai-content strong { color: var(--text); font-weight: 600; }
+.ai-content em { font-style: italic; }
+.ai-content a { color: var(--accent); text-decoration: none; }
+.ai-content a:hover { text-decoration: underline; }
+.ai-content h1, .ai-content h2, .ai-content h3 {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  margin: 18px 0 8px; letter-spacing: -0.01em;
+}
+.ai-content h4 { font-size: 14px; font-weight: 600; color: var(--text); margin: 14px 0 6px; }
+.ai-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.ai-content blockquote {
+  border-left: 3px solid var(--accent-border);
+  padding: 4px 0 4px 14px; margin: 10px 0;
+  color: var(--text-2); font-style: italic;
+}
+
+/* Tables */
+.ai-content table {
+  border-collapse: collapse; width: 100%; margin: 14px 0;
+  font-size: 13px; border-radius: var(--radius-sm); overflow: hidden;
+  border: 1px solid var(--border);
+}
+.ai-content thead { background: var(--surface); }
+.ai-content th {
+  padding: 8px 12px; text-align: left; font-weight: 600;
+  color: var(--text); border-bottom: 2px solid var(--border);
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.ai-content td {
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  color: var(--text-2); vertical-align: top;
+}
+.ai-content tbody tr:last-child td { border-bottom: none; }
+.ai-content tbody tr:hover { background: var(--bg-warm); }
+
+/* Code blocks */
+.code-wrap {
+  position: relative; margin: 14px 0;
+  border-radius: var(--radius); overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--code-wrap-bg);
+}
+.code-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.code-lang {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  color: var(--text-3); letter-spacing: 0.05em;
+  font-family: 'JetBrains Mono', monospace;
+}
+.copy-btn {
+  padding: 3px 10px; border-radius: 4px; font-size: 11px;
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text-2); cursor: pointer; font-weight: 500;
+  transition: all 0.15s;
+}
+.copy-btn:hover { border-color: var(--border-focus); color: var(--text); }
+.copy-btn.copied { color: var(--green); border-color: var(--green); }
+.code-wrap pre {
+  margin: 0; padding: 14px 16px; overflow-x: auto;
+  font-size: 13px; line-height: 1.55;
+  font-family: 'JetBrains Mono', monospace;
+}
+.code-wrap pre code {
+  font-family: inherit; background: none !important;
+  padding: 0 !important;
+}
+
+/* Inline code */
+.ai-content code:not(pre code) {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--code-inline-bg); border: 1px solid var(--border);
+  padding: 1px 5px; border-radius: 4px; font-size: 12.5px;
+  color: var(--code-inline-color);
+}
+
+/* Citations */
+.citations {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px;
+}
+.cite-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 6px; font-size: 11.5px;
+  font-weight: 500; transition: all 0.12s;
+  text-decoration: none; cursor: pointer;
+}
+.cite-pill:hover {
+  opacity: 0.85; transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.cite-kb     { background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent-border); }
+.cite-web    { background: var(--green-light);  color: var(--green);  border: 1px solid var(--green-border, #a7f3d0); }
+.cite-user   { background: var(--yellow-light); color: var(--yellow); border: 1px solid var(--yellow-border, #fde68a); }
+
+/* Actions row */
+.actions-row {
+  display: flex; align-items: center; gap: 4px; margin-top: 10px;
+  flex-wrap: wrap;
+}
+.action-btn {
+  padding: 4px 7px; border-radius: 6px; font-size: 12px;
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text-2); cursor: pointer; transition: background-color 0.12s, color 0.12s, border-color 0.12s;
+  display: inline-flex; align-items: center; gap: 4px; line-height: 1;
+}
+.action-btn svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  flex-shrink: 0;
+}
+.action-btn:hover { background: var(--surface); color: var(--text); border-color: var(--border-focus); }
+.action-btn.voted-up   { color: var(--green); background: var(--green-light); border-color: #a7f3d0; }
+.action-btn.voted-down { color: var(--red);   background: var(--red-light);   border-color: #fecaca; }
+
+/* Pipeline trace */
+.trace-box {
+  margin-top: 10px; border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  display: none; background: var(--bg);
+}
+.trace-box.open { display: block; animation: slideDown 0.2s ease; }
+@keyframes slideDown { from { opacity:0; max-height:0; } to { opacity:1; max-height:1000px; } }
+
+.trace-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-3);
+}
+.trace-header span:last-child {
+  font-family: 'JetBrains Mono', monospace; font-weight: 500;
+  color: var(--text-2);
+}
+.trace-list { padding: 8px 10px; }
+.trace-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 6px; border-radius: 5px; font-size: 12.5px;
+  transition: background 0.1s;
+}
+.trace-row:hover { background: var(--surface); }
+.trace-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.trace-dot.ok   { background: var(--green); }
+.trace-dot.warn { background: var(--yellow); }
+.trace-dot.err  { background: var(--red); }
+.trace-dot.run  { background: var(--accent); animation: pulse 0.8s infinite; }
+.trace-num { font-size: 11px; color: var(--text-3); min-width: 16px; flex-shrink: 0; }
+.trace-name { flex: 1; color: var(--text-2); font-weight: 500; }
+.trace-detail {
+  font-size: 11px; color: var(--text-3); max-width: 240px;
+  text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.trace-ms {
+  font-size: 11px; color: var(--text-3); min-width: 44px; text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Streaming cursor */
+.cursor {
+  display: inline-block; width: 2px; height: 16px;
+  background: var(--accent); vertical-align: text-bottom;
+  animation: blink-cursor 0.7s infinite;
+}
+.thinking-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+.thinking-line::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1s ease infinite;
+}
+@keyframes blink-cursor { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ── Input Area ── */
+.input-area {
+  padding: 0 24px 20px;
+  background: var(--bg); position: relative;
+}
+.input-container {
+  max-width: 780px; margin: 0 auto;
+}
+.input-box {
+  display: flex; align-items: flex-end; gap: 0;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface); transition: border-color 0.2s;
+  box-shadow: none;
+}
+.input-box:focus-within {
+  border-color: var(--accent-border);
+  box-shadow: none;
+}
+#queryInput {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--text); font-family: inherit; font-size: 14px;
+  padding: 12px 16px; resize: none; max-height: 160px; line-height: 1.5;
+  min-height: 44px;
+}
+#queryInput::placeholder { color: var(--text-3); }
+.send-btn {
+  width: 36px; height: 36px; border-radius: 9px; margin: 4px;
+  background: var(--surface); border: 1px solid var(--border); cursor: pointer;
+  color: var(--text); display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
+}
+.send-btn svg { width: 16px; height: 16px; display: block; }
+.send-btn:hover { background: var(--bg-warm); border-color: var(--border-focus); }
+.send-btn:disabled { background: var(--surface2); color: var(--text-3); cursor: not-allowed; border-color: var(--border); }
+
+.input-footer {
+  display: flex; align-items: center; gap: 10px; margin-top: 6px;
+  padding: 0 4px; flex-wrap: wrap;
+}
+.input-tag { font-size: 11px; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
+.toggle-sm {
+  width: 28px; height: 16px; border-radius: 8px; background: var(--surface2);
+  position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+}
+.toggle-sm.on { background: var(--accent); }
+.toggle-sm::after {
+  content: ''; width: 12px; height: 12px; border-radius: 50%; background: white;
+  position: absolute; top: 2px; left: 2px; transition: left 0.2s;
+}
+.toggle-sm.on::after { left: 14px; }
+.toggle-sm::before {
+  content: '○';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: var(--text-3);
+  line-height: 1;
+  pointer-events: none;
+}
+.toggle-sm.on::before {
+  content: '●';
+  color: white;
+}
+
+/* ── Pipeline Live Bar ── */
+.live-bar {
+  display: none; padding: 10px 24px;
+  border-bottom: 1px solid var(--border); background: var(--bg-warm);
+}
+.live-bar.visible { display: block; }
+.live-steps {
+  display: flex; align-items: center; gap: 2px;
+  max-width: 780px; margin: 0 auto;
+  overflow-x: auto; padding-bottom: 2px;
+}
+.live-step {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0;
+}
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--surface2);
+  transition: all 0.3s;
+}
+.live-dot.done { background: var(--green); box-shadow: 0 0 4px rgba(5,150,105,0.3); }
+.live-dot.run  { background: var(--accent); box-shadow: 0 0 4px rgba(37,99,235,0.3); animation: pulse 0.6s infinite; }
+.live-dot.warn { background: var(--yellow); }
+.live-lbl { font-size: 9px; color: var(--text-3); white-space: nowrap; }
+.live-sep { width: 12px; height: 1px; background: var(--surface2); flex-shrink: 0; margin-bottom: 14px; }
+
+/* ── Modal ── */
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+  backdrop-filter: blur(4px); z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-bg.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 14px; padding: 24px; width: 420px; max-width: 95vw;
+  box-shadow: var(--shadow-lg);
+}
+.modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+.drop-zone {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  padding: 32px; text-align: center; cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s; color: var(--text-2); margin-bottom: 14px;
+}
+.drop-zone:hover, .drop-zone.over { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+.drop-icon { font-size: 32px; margin-bottom: 6px; }
+.drop-text { font-size: 13px; }
+.drop-sub  { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+.modal-foot { display: flex; gap: 8px; justify-content: flex-end; }
+.btn { padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.btn-fill { background: var(--accent); color: white; border: none; }
+.btn-fill:hover { background: #1f2937; }
+.btn-fill:disabled { background: var(--surface2); color: var(--text-3); cursor: not-allowed; }
+.btn-ghost { background: transparent; color: var(--text-2); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--border-focus); }
+
+/* ── Toast ── */
+.toast-wrap { position: fixed; bottom: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 6px; }
+.toast {
+  padding: 10px 16px; border-radius: var(--radius-sm);
+  background: var(--bg); border: 1px solid var(--border);
+  box-shadow: none; font-size: 13px;
+  display: flex; align-items: center; gap: 8px;
+  animation: toastIn 0.3s ease;
+}
+.toast.ok { border-left: 3px solid var(--green); }
+.toast.err { border-left: 3px solid var(--red); }
+@keyframes toastIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; } }
+
+#fileInput { display: none; }
+
+/* ═══ Responsive ═══ */
+@media (max-width: 700px) {
+  .sidebar { position: fixed; left: 0; top: 0; height: 100%; z-index: 30; transform: translateX(-100%); transition: transform 0.3s; }
+  .sidebar.mobile-open { transform: translateX(0); width: 260px; }
+  .suggestions { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ══ SIDEBAR ══ -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <div>
+          <div class="brand-name">PyMind</div>
+          <div class="brand-sub">Enterprise AI Assistant</div>
+        </div>
+      </div>
+      <button class="new-chat-btn" id="newSessionBtn">New chat</button>
+    </div>
+
+    <div class="sidebar-label">Recent</div>
+    <div class="session-list" id="sessionList"></div>
+
+    <div class="doc-section">
+      <div class="sidebar-label" style="display:flex;justify-content:space-between;align-items:center;padding-right:14px">
+        <span>Documents</span>
+      </div>
+      <div class="doc-list" id="docList"></div>
+      <button class="upload-btn-small" id="uploadTriggerBtn">Upload document</button>
+    </div>
+  </nav>
+
+  <!-- ══ MAIN ══ -->
+  <div class="main">
+    <header class="topbar">
+      <button class="sidebar-toggle" id="toggleSidebar" title="Toggle sidebar" aria-label="Toggle sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 6h16"></path>
+          <path d="M4 12h16"></path>
+          <path d="M4 18h16"></path>
+        </svg>
+      </button>
+      <div class="topbar-spacer"></div>
+      <span id="userBadge" style="font-size:12.5px;color:var(--text-2);font-weight:500;margin-right:12px;display:none;"></span>
+      <button class="topbar-link" id="logoutBtn" style="cursor:pointer;border:none;background:none;font-weight:500;display:none;outline:none;margin-right:12px;padding:4px 8px;">Log Out</button>
+      <button class="sidebar-toggle" id="themeToggleBtn" title="Toggle dark mode" aria-label="Toggle dark mode" style="margin-right: 8px;">◐</button>
+      <a href="/docs" target="_blank" class="topbar-link">API Docs</a>
+      <a href="/health" target="_blank" class="topbar-link">Health</a>
+      <a href="/metrics" target="_blank" class="topbar-link">Metrics</a>
+    </header>
+
+    <div class="live-bar" id="liveBar">
+      <div class="live-steps" id="liveSteps"></div>
+    </div>
+
+    <div class="chat-area">
+      <div class="messages" id="messagesScroll">
+        <div class="messages-inner" id="messages">
+          <div class="welcome" id="welcome">
+            <h2>What can I help you with?</h2>
+            <p>Enterprise Python AI Assistant powered by a 13-stage RAG pipeline. Ask any Python question — I'll search 28K+ Stack Overflow answers, verify for hallucinations, and cite my sources.</p>
+            <div class="suggestions" id="suggestions">
+              <button class="suggestion" data-q="How do I implement a decorator in Python?">
+                Implement a Python decorator
+              </button>
+              <button class="suggestion" data-q="Explain Python's GIL and how to work around it">
+                Explain Python's GIL
+              </button>
+              <button class="suggestion" data-q="Write a retry decorator with exponential backoff">
+                Write a retry decorator
+              </button>
+              <button class="suggestion" data-q="TypeError: 'NoneType' object is not subscriptable — debug this">
+                Debug NoneType error
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-container">
+          <div class="input-box">
+            <textarea id="queryInput" rows="1" placeholder="Ask anything about Python…" maxlength="2000"></textarea>
+            <button class="send-btn" id="sendBtn" title="Send" aria-label="Send">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 2L11 13"></path>
+                <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="input-footer">
+            <label class="input-tag" style="cursor:pointer" title="Include uploaded documents in search">
+              <div class="toggle-sm" id="docsToggle" style="opacity: 0.5; pointer-events: none;"></div>
+              <span>Search my docs</span>
+            </label>
+            <span class="input-tag" id="sessionTag" style="margin-left:auto">No session</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal-bg" id="uploadModal">
+  <div class="modal">
+    <h3>Upload Document</h3>
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-text">Drag & drop or click to browse</div>
+      <div class="drop-sub">PDF, DOCX, TXT, MD, PY · Max 20 MB</div>
+    </div>
+    <div id="selFile" style="font-size:12px;color:var(--text-2);margin-bottom:12px;display:none"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="cancelUpload">Cancel</button>
+      <button class="btn btn-fill" id="confirmUpload" disabled>Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- Auth Modal -->
+<div class="modal-bg" id="loginOverlay" style="display: none;">
+  <div class="modal">
+    <h3 id="authTitle">Sign In to PyMind</h3>
+    <p id="authSubtitle" style="font-size:12px; color:var(--text-3); margin-bottom:16px;">Access your personal RAG Python Assistant</p>
+    <form id="authForm">
+      <input type="text" id="authUsername" placeholder="Username" style="width:100%; padding:8px; margin-bottom:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg);" required>
+      <input type="password" id="authPassword" placeholder="Password" style="width:100%; padding:8px; margin-bottom:16px; border-radius:8px; border:1px solid var(--border); background:var(--bg);" required>
+      <button type="submit" class="btn btn-fill" id="authSubmitBtn" style="width:100%">Log In</button>
+    </form>
+    <div style="margin-top:16px; text-align:center; font-size: 12px; color:var(--text-3);">
+      <span id="toggleAuthText">Don't have an account?</span> 
+      <button id="toggleAuthBtn" style="background:none; border:none; color:var(--accent); cursor:pointer; font-weight:600;">Sign Up</button>
+    </div>
+    <div style="margin-top:8px; text-align:center;">
+       <button onclick="continueAsGuest()" style="background:none; border:none; color:var(--text-3); font-size:11px; cursor:pointer; text-decoration:underline;">Continue as Guest</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".pdf,.docx,.txt,.md,.py">
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════ */
+const S = {
+  userId: null,
+  isGuest: false,
+  sessionId: null,
+  sessions: [],
+  docs: [],
+  loading: false,
+  includeUserDocs: false,
+};
+
+const STAGES = [
+  {node:'auth',label:'Auth'},{node:'validator',label:'Validate'},
+  {node:'classifier',label:'Intent'},{node:'rewriter',label:'Rewrite'},
+  {node:'retriever',label:'Retrieve'},{node:'reranker',label:'Rerank'},
+  {node:'compressor',label:'Compress'},{node:'hallucination',label:'Ground'},
+  {node:'generator',label:'Generate'},{node:'citation',label:'Cite'},
+  {node:'guardrails',label:'Safety'},{node:'observer',label:'Log'},
+];
+const NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
+
+/* ═══════════════════════════════════════════════════════
+   REFS
+═══════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const msgBox = $('messages');
+const scroll = $('messagesScroll');
+const input  = $('queryInput');
+const sendBtn= $('sendBtn');
+
+/* ═══════════════════════════════════════════════════════
+   AUTHENTICATED FETCH WRAPPER
+═══════════════════════════════════════════════════════ */
+async function authFetch(url, options = {}) {
+  if (!options.headers) options.headers = {};
+  if (S.isGuest && S.userId) {
+    options.headers['X-Guest-User'] = S.userId;
+  }
+  const r = await fetch(url, options);
+  if (r.status === 401) {
+    if (!S.isGuest) {
+      showLogin();
+    }
+  }
+  return r;
+}
+
+/* ═══════════════════════════════════════════════════════
+   AUTHENTICATION INTERFACE
+═══════════════════════════════════════════════════════ */
+let isSignUpMode = false;
+
+function toggleAuthMode(e) {
+  if (e) e.preventDefault();
+  isSignUpMode = !isSignUpMode;
+  $('authTitle').textContent = isSignUpMode ? 'Create PyMind Account' : 'Sign In to PyMind';
+  $('authSubtitle').textContent = isSignUpMode ? 'Register to persist your sessions' : 'Access your personal RAG Python Assistant';
+  $('authSubmitBtn').textContent = isSignUpMode ? 'Sign Up' : 'Log In';
+  $('toggleAuthText').textContent = isSignUpMode ? 'Already have an account?' : "Don't have an account?";
+  $('toggleAuthBtn').textContent = isSignUpMode ? 'Log In' : 'Sign Up';
+}
+
+function showLogin() {
+  $('loginOverlay').style.display = 'flex';
+  $('loginOverlay').style.opacity = '1';
+  $('loginOverlay').style.pointerEvents = 'auto';
+}
+
+function hideLogin() {
+  $('loginOverlay').style.opacity = '0';
+  $('loginOverlay').style.pointerEvents = 'none';
+  setTimeout(() => $('loginOverlay').style.display = 'none', 300);
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const username = $('authUsername').value.trim();
+  const password = $('authPassword').value;
+  if (!username || !password) return;
+
+  const endpoint = isSignUpMode ? '/signup' : '/login';
+  $('authSubmitBtn').disabled = true;
+  $('authSubmitBtn').textContent = isSignUpMode ? 'Registering...' : 'Signing in...';
+
+  try {
+    const r = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Authentication failed');
+
+    S.userId = username;
+    S.isGuest = false;
+    hideLogin();
+    
+    $('userBadge').textContent = username;
+    $('userBadge').style.display = 'inline';
+    $('logoutBtn').textContent = 'Log Out';
+    $('logoutBtn').style.display = 'inline';
+    
+    $('uploadTriggerBtn').disabled = false;
+    $('uploadTriggerBtn').style.opacity = '1';
+    $('uploadTriggerBtn').style.pointerEvents = 'auto';
+
+    await loadSessions();
+    await loadDocs();
+    toast(isSignUpMode ? 'Registered & logged in!' : 'Welcome back!');
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    $('authSubmitBtn').disabled = false;
+    $('authSubmitBtn').textContent = isSignUpMode ? 'Sign Up' : 'Log In';
+  }
+}
+
+function continueAsGuest() {
+  S.userId = 'guest-' + Math.random().toString(36).substring(2, 11);
+  S.isGuest = true;
+  hideLogin();
+
+  $('userBadge').textContent = 'Guest User';
+  $('userBadge').style.display = 'inline';
+  $('logoutBtn').textContent = 'Exit Guest';
+  $('logoutBtn').style.display = 'inline';
+
+  $('uploadTriggerBtn').disabled = true;
+  $('uploadTriggerBtn').style.opacity = '0.5';
+  $('uploadTriggerBtn').style.pointerEvents = 'none';
+
+  loadSessions();
+  renderDocs(); 
+  toast('Guest mode active (data will not be saved)');
+}
+
+async function handleLogout() {
+  if (S.loading) { toast('Please wait until response completes', true); return; }
+  try {
+    if (!S.isGuest) {
+      await fetch('/logout', { method: 'POST' });
+    }
+  } catch {}
+  
+  S.userId = null;
+  S.isGuest = false;
+  S.sessionId = null;
+  S.sessions = [];
+  S.docs = [];
+  clearChat();
+  
+  $('userBadge').style.display = 'none';
+  $('logoutBtn').style.display = 'none';
+  
+  $('authUsername').value = '';
+  $('authPassword').value = '';
+  if (isSignUpMode) toggleAuthMode();
+  showLogin();
+  toast('Logged out successfully');
+}
+
+/* ═══════════════════════════════════════════════════════
+   THEME CONTROLLER
+═══════════════════════════════════════════════════════ */
+function toggleTheme() {
+  const current = localStorage.getItem('pymind-theme') || 'light';
+  const target = current === 'light' ? 'dark' : 'light';
+  setTheme(target);
+}
+
+function setTheme(theme) {
+  document.documentElement.classList.add('theme-transition');
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    const link = $('hljsTheme');
+    if (link) link.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css';
+    $('themeToggleBtn').textContent = '☀';
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    const link = $('hljsTheme');
+    if (link) link.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+    $('themeToggleBtn').textContent = '◐';
+  }
+  document.documentElement.style.colorScheme = theme;
+  localStorage.setItem('pymind-theme', theme);
+  window.clearTimeout(setTheme._t);
+  setTheme._t = window.setTimeout(() => document.documentElement.classList.remove('theme-transition'), 350);
+}
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+async function init() {
+  wireUI();
+  buildLiveBar();
+  setTheme(localStorage.getItem('pymind-theme') || 'light');
+  
+  $('logoutBtn').addEventListener('click', handleLogout);
+  $('authForm').addEventListener('submit', handleAuth);
+  $('toggleAuthBtn').addEventListener('click', toggleAuthMode);
+  
+  try {
+    const r = await authFetch(`/sessions?user_id=check`);
+    if (r.ok) {
+      const d = await r.json();
+      S.userId = d.user_id;
+      S.isGuest = false;
+      
+      $('userBadge').textContent = S.userId;
+      $('userBadge').style.display = 'inline';
+      $('logoutBtn').textContent = 'Log Out';
+      $('logoutBtn').style.display = 'inline';
+      
+      hideLogin();
+      await loadSessions();
+      await loadDocs();
+    } else {
+      showLogin();
+    }
+  } catch {
+    showLogin();
+  }
+}
+
+function wireUI() {
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  sendBtn.addEventListener('click', send);
+
+  $('toggleSidebar').addEventListener('click', () => {
+    const sb = $('sidebar');
+    if (window.innerWidth <= 700) sb.classList.toggle('mobile-open');
+    else sb.classList.toggle('collapsed');
+  });
+  $('newSessionBtn').addEventListener('click', () => {
+    if (S.loading) { toast('Please wait until the current response is generated', true); return; }
+    newSession();
+  });
+  $('docsToggle').addEventListener('click', () => {
+    if (S.loading) return;
+    S.includeUserDocs = !S.includeUserDocs;
+    $('docsToggle').classList.toggle('on', S.includeUserDocs);
+  });
+  $('uploadTriggerBtn').addEventListener('click', () => {
+    if (S.loading) { toast('Please wait until the current response is generated', true); return; }
+    openUpload();
+  });
+  $('themeToggleBtn').addEventListener('click', toggleTheme);
+
+  document.addEventListener('click', e => {
+    const s = e.target.closest('.suggestion');
+    if (s && s.dataset.q) {
+      if (S.loading) return;
+      input.value = s.dataset.q;
+      input.dispatchEvent(new Event('input'));
+      send();
+    }
+  });
+
+  msgBox.addEventListener('click', e => {
+    const a = e.target.closest('a');
+    if (a) {
+      if (a.classList.contains('cite-pill')) return;
+      if (S.loading) {
+        e.preventDefault();
+        toast('Please wait until the current response is generated', true);
+        return;
+      }
+      
+      const href = a.getAttribute('href');
+      if (href && !href.startsWith('http://') && !href.startsWith('https://') && !href.startsWith('/') && !href.startsWith('#')) {
+        e.preventDefault();
+        input.value = href;
+        input.dispatchEvent(new Event('input'));
+        send();
+      }
+    }
+  });
+
+  const mb = $('uploadModal');
+  $('cancelUpload').addEventListener('click', () => mb.classList.remove('open'));
+  mb.addEventListener('click', e => { if (e.target === mb) mb.classList.remove('open'); });
+  const dz = $('dropZone');
+  dz.addEventListener('click', () => $('fileInput').click());
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); if(e.dataTransfer.files[0]) pickFile(e.dataTransfer.files[0]); });
+  $('fileInput').addEventListener('change', e => { if(e.target.files[0]) pickFile(e.target.files[0]); });
+  $('confirmUpload').addEventListener('click', doUpload);
+}
+
+/* ═══════════════════════════════════════════════════════
+   SESSIONS
+═══════════════════════════════════════════════════════ */
+async function loadSessions() {
+  try {
+    const r = await authFetch(`/sessions?user_id=${S.userId}`, { cache: 'no-store' });
+    const d = await r.json();
+    S.sessions = d.sessions || [];
+    if (S.sessionId && !S.sessions.some(s => s.session_id === S.sessionId)) {
+      S.sessionId = null;
+    }
+    if (!S.sessionId && S.sessions.length) {
+      S.sessionId = S.sessions[0].session_id;
+    }
+    renderSessions();
+    updateTag();
+  } catch {}
+}
+
+function renderSessions() {
+  const el = $('sessionList');
+  if (!S.sessions.length) { el.innerHTML = '<div style="padding:8px 14px;font-size:12px;color:var(--text-3)">No sessions yet</div>'; return; }
+  el.innerHTML = S.sessions.map(s => {
+    const label = esc(s.title || 'New Session').slice(0, 26);
+    const active = s.session_id === S.sessionId ? ' active' : '';
+    return `
+      <div class="session-item${active}" data-sid="${s.session_id}" title="${esc(s.title||'')}">
+        <span class="session-label" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
+        <span class="session-del" data-sid="${s.session_id}">✕</span>
+      </div>`;
+  }).join('');
+  
+  el.querySelectorAll('.session-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.classList.contains('session-del')) return;
+      switchSession(item.dataset.sid);
+    });
+  });
+
+  el.querySelectorAll('.session-del').forEach(b => {
+    b.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (S.loading) { toast('Please wait until the current response is generated', true); return; }
+      const sid = b.dataset.sid;
+      if (confirm('Are you sure you want to delete this chat session?')) {
+        await deleteSession(sid);
+      }
+    });
+  });
+}
+
+async function deleteSession(sid) {
+  if (S.loading) { toast('Please wait until the current response is generated', true); return; }
+  try {
+    const r = await authFetch(`/sessions/${sid}`, { method: 'DELETE' });
+    if (r.ok) {
+      if (S.sessionId === sid) {
+        S.sessionId = null;
+        clearChat();
+        updateTag();
+      }
+      await loadSessions();
+      toast('Session deleted');
+    } else {
+      toast('Failed to delete session', true);
+    }
+  } catch (e) {
+    toast('Failed to delete session', true);
+  }
+}
+
+async function newSession() {
+  if (S.loading) { toast('Please wait until the current response is generated', true); return; }
+  const r = await authFetch(`/sessions?user_id=${S.userId}`, { method: 'POST' });
+  const d = await r.json();
+  S.sessionId = d.session_id;
+  await loadSessions();
+  clearChat();
+  updateTag();
+  toast('New session started');
+}
+
+function showHistoryLoading() {
+  msgBox.innerHTML = `
+    <div class="history-loading" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:60vh; gap:16px; color:var(--text-2); animation: fadeUp 0.3s ease;">
+      <div style="font-weight: 500; font-size:14px; letter-spacing:-0.01em;">Loading conversation history...</div>
+    </div>`;
+}
+
+async function switchSession(sid) {
+  if (S.loading) {
+    toast('Please wait until the current response is generated', true);
+    return;
+  }
+  S.sessionId = sid;
+  msgBox.innerHTML = '';
+  showHistoryLoading();
+  renderSessions();
+  updateTag();
+  try {
+    const r = await authFetch(`/sessions/${sid}/history`, { cache: 'no-store' });
+    const d = await r.json();
+    msgBox.innerHTML = '';
+    if (d.messages && d.messages.length) {
+      hideWelcome();
+      for (let i = 0; i < d.messages.length; i++) {
+        const m = d.messages[i];
+        if (m.role === 'user') {
+          addUserBubble(m.content);
+        } else {
+          addAIBubble(m.content, {
+            intent: m.intent || 'rag',
+            confidence: m.confidence || '',
+            citations: m.citations || [],
+            pipeline_trace: m.pipeline_trace || [],
+            responseId: m.id || '',
+            fromHistory: true
+          });
+        }
+      }
+    } else {
+      showWelcome();
+    }
+    scrollDown();
+  } catch {
+    showWelcome();
+  }
+}
+
+function updateTag() {
+  $('sessionTag').textContent = S.sessionId ? `Session: ${S.sessionId.slice(0,8)}…` : 'No session';
+}
+
+/* ═══════════════════════════════════════════════════════
+   DOCUMENTS
+═══════════════════════════════════════════════════════ */
+async function loadDocs() {
+  try {
+    const r = await authFetch(`/documents?user_id=${S.userId}`);
+    const d = await r.json();
+    S.docs = d.documents || [];
+    renderDocs();
+  } catch {}
+}
+
+function renderDocs() {
+  const el = $('docList');
+  const toggle = $('docsToggle');
+  if (!S.docs.length) {
+    el.innerHTML = '<div style="padding:4px 14px;font-size:11px;color:var(--text-3)">No documents yet</div>';
+    if (toggle) {
+      toggle.classList.remove('on');
+      toggle.style.opacity = '0.5';
+      toggle.style.pointerEvents = 'none';
+      S.includeUserDocs = false;
+    }
+    return;
+  }
+  
+  if (toggle) {
+    toggle.style.opacity = '1';
+    toggle.style.pointerEvents = 'auto';
+    toggle.classList.toggle('on', S.includeUserDocs);
+  }
+
+  el.innerHTML = S.docs.map(d => {
+    const typeLabel = {pdf:'PDF',docx:'DOCX',txt:'TXT',md:'MD',py:'PY'}[d.file_type]||'File';
+    return `<div class="doc-item"><span style="font-size:10px;color:var(--text-3);min-width:32px">${typeLabel}</span><span class="doc-item-name" title="${esc(d.filename)}">${esc(d.filename)}</span><span style="font-size:10px;color:var(--text-3)">${d.chunk_count}c</span><span class="doc-del" data-did="${d.doc_id}">✕</span></div>`;
+  }).join('');
+  el.querySelectorAll('.doc-del').forEach(b => b.addEventListener('click', async () => {
+    await authFetch(`/documents/${b.dataset.did}?user_id=${S.userId}`, { method: 'DELETE' });
+    await loadDocs();
+    toast('Document removed');
+  }));
+}
+
+let pendingFile = null;
+function openUpload() {
+  pendingFile = null;
+  $('selFile').style.display = 'none';
+  $('confirmUpload').disabled = true;
+  $('uploadModal').classList.add('open');
+}
+function pickFile(f) {
+  pendingFile = f;
+  $('selFile').textContent = `${f.name} (${(f.size/1024).toFixed(1)} KB)`;
+  $('selFile').style.display = 'block';
+  $('confirmUpload').disabled = false;
+}
+async function doUpload() {
+  if (!pendingFile) return;
+  const fd = new FormData(); fd.append('file', pendingFile); fd.append('user_id', S.userId);
+  $('confirmUpload').disabled = true; $('confirmUpload').textContent = 'Uploading…';
+  try {
+    const r = await authFetch('/upload', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Upload failed');
+    $('uploadModal').classList.remove('open');
+    await loadDocs();
+    toast(`"${d.filename}" — ${d.chunk_count} chunks indexed`);
+  } catch (e) { toast(e.message, true); }
+  finally { $('confirmUpload').disabled = false; $('confirmUpload').textContent = 'Upload'; pendingFile = null; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   LIVE PIPELINE BAR
+═══════════════════════════════════════════════════════ */
+function buildLiveBar() {
+  const el = $('liveSteps');
+  el.innerHTML = STAGES.map((s,i) => {
+    const sep = i < STAGES.length - 1 ? '<div class="live-sep"></div>' : '';
+    return `<div class="live-step"><div class="live-dot" id="ld-${s.node}"></div><div class="live-lbl">${s.label}</div></div>${sep}`;
+  }).join('');
+}
+function resetLive() { STAGES.forEach(s => { const d = $(`ld-${s.node}`); if(d) d.className = 'live-dot'; }); $('liveBar').classList.add('visible'); }
+function setLiveDot(node, st) { const d = $(`ld-${node}`); if(d) d.className = 'live-dot ' + (st==='success'?'done':st==='running'?'run':st==='warning'?'warn':'done'); }
+function hideLive() { $('liveBar').classList.remove('visible'); }
+
+/* ═══════════════════════════════════════════════════════
+   SEND (SSE Streaming)
+═══════════════════════════════════════════════════════ */
+async function send() {
+  const q = input.value.trim();
+  if (!q || S.loading) return;
+
+  if (!S.sessionId) {
+    const r = await authFetch(`/sessions?user_id=${S.userId}`, { method: 'POST' });
+    const d = await r.json();
+    S.sessionId = d.session_id;
+    await loadSessions();
+    updateTag();
+  }
+
+  hideWelcome();
+  addUserBubble(q);
+  input.value = ''; input.style.height = 'auto';
+  setLoading(true);
+  resetLive();
+
+  // AI placeholder
+  const group = document.createElement('div'); group.className = 'msg-group';
+  const aiResp = document.createElement('div'); aiResp.className = 'ai-response';
+  const aiLabel = document.createElement('div'); aiLabel.className = 'ai-label';
+  aiLabel.innerHTML = `<span class="ai-name">PyMind</span>`;
+  const aiContent = document.createElement('div'); aiContent.className = 'ai-content';
+  aiContent.dataset.raw = '';
+  aiContent.dataset.streamStarted = '0';
+  aiContent.innerHTML = '<div class="thinking-line">Analyzing retrieved context...</div><span class="cursor"></span>';
+  const metaArea = document.createElement('div');
+
+  aiResp.append(aiLabel, aiContent, metaArea);
+  group.appendChild(aiResp);
+  msgBox.appendChild(group);
+  scrollDown();
+
+  let liveTrace = [];
+  const thinkingMessages = [];
+
+  function renderStreamingContent() {
+    const raw = aiContent.dataset.raw || '';
+    const streamStarted = aiContent.dataset.streamStarted === '1';
+    const parts = [];
+
+    if (!streamStarted) {
+      const latest = thinkingMessages[thinkingMessages.length - 1] || 'Analyzing retrieved context...';
+      parts.push(`<div class="thinking-line">${esc(latest)}</div>`);
+    }
+
+    if (raw) {
+      parts.push(renderMD(raw));
+    }
+
+    parts.push('<span class="cursor"></span>');
+    aiContent.innerHTML = parts.join('');
+  }
+
+  try {
+    const resp = await authFetch('/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, session_id: S.sessionId, user_id: S.userId, include_user_docs: S.includeUserDocs }),
+    });
+    if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.detail || `HTTP ${resp.status}`); }
+
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const raw = line.slice(5).trim();
+        if (!raw) continue;
+        let ev; try { ev = JSON.parse(raw); } catch { continue; }
+
+        if (ev.type === 'session') {
+          if (ev.session_id) { S.sessionId = ev.session_id; updateTag(); }
+        } else if (ev.type === 'node_start') {
+          setLiveDot(ev.node, 'running');
+          liveTrace.push({ node: ev.node, label: ev.label||ev.node, status:'running', latency_ms:0, detail:null });
+        } else if (ev.type === 'node_done') {
+          setLiveDot(ev.node, ev.status||'success');
+          const t = liveTrace.find(x=>x.node===ev.node);
+          if (t) { t.status = ev.status||'success'; t.latency_ms = ev.latency_ms||0; t.detail = ev.detail||null; }
+        } else if (ev.type === 'thinking') {
+          if (aiContent.dataset.streamStarted !== '1') {
+            thinkingMessages.push(ev.message || 'Working on your answer...');
+            renderStreamingContent();
+            scrollDown();
+          }
+        } else if (ev.type === 'token') {
+          aiContent.dataset.streamStarted = '1';
+          aiContent.dataset.raw += ev.token;
+          renderStreamingContent();
+          scrollDown();
+        } else if (ev.type === 'complete') {
+          const intent = ev.intent || 'rag';
+          aiLabel.innerHTML = `<span class="ai-name">PyMind</span>
+            <span class="intent-tag tag-${intent}">${intent}</span>
+            <span class="conf-label">${ev.confidence||''} confidence</span>`;
+
+          aiContent.innerHTML = renderMD(ev.answer || '');
+          highlightAll(aiContent);
+
+          const finalTrace = ev.pipeline_trace || liveTrace;
+          populateResponseMetadata(metaArea, {
+            citations: ev.citations || [],
+            pipeline_trace: finalTrace,
+            responseId: ev.response_id || '',
+            web_fallback_used: ev.web_fallback_used,
+          });
+
+          STAGES.forEach(s => { const d = $(`ld-${s.node}`); if(d && !d.classList.contains('done') && !d.classList.contains('warn')) d.className = 'live-dot done'; });
+          hideLive();
+          await loadSessions();
+        } else if (ev.type === 'error') {
+          aiContent.innerHTML = `<p style="color:var(--red)">${esc(ev.message || 'An error occurred')}</p>`;
+          hideLive();
+        }
+      }
+    }
+  } catch (e) {
+    aiContent.innerHTML = `<p style="color:var(--red)">${esc(e.message)}</p>`;
+    hideLive();
+    toast(e.message, true);
+  } finally {
+    setLoading(false);
+    scrollDown();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MESSAGE RENDERING
+═══════════════════════════════════════════════════════ */
+function addUserBubble(text) {
+  const g = document.createElement('div'); g.className = 'msg-group';
+  g.innerHTML = `<div class="user-msg">${esc(text).replace(/\n/g,'<br>')}</div>`;
+  msgBox.appendChild(g);
+  scrollDown();
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSE METADATA RENDERER
+═══════════════════════════════════════════════════════ */
+function populateResponseMetadata(metaArea, meta) {
+  metaArea.innerHTML = '';
+
+  const cites = meta.citations || [];
+  const isWeb = meta.web_fallback_used || (cites && cites.some(c => c.source === 'web'));
+  if (isWeb) {
+    const webNotice = document.createElement('div');
+    webNotice.className = 'web-fallback-note';
+    webNotice.style.fontSize = '11.5px';
+    webNotice.style.color = 'var(--text-3)';
+    webNotice.style.marginTop = '6px';
+    webNotice.style.marginBottom = '8px';
+    webNotice.style.display = 'flex';
+    webNotice.style.alignItems = 'center';
+    webNotice.style.gap = '6px';
+    webNotice.innerHTML = `
+      <svg style="width:13px; height:13px; color:var(--accent); flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      <span>Not found on Stack Overflow. Switched to Tavily Web Search.</span>
+    `;
+    metaArea.appendChild(webNotice);
+  }
+  if (cites.length) {
+    const cRow = document.createElement('div');
+    cRow.className = 'citations';
+    
+    const firstFive = cites.slice(0, 5);
+    const remaining = cites.slice(5);
+    
+    const buildPill = c => {
+      const cls = c.source === 'web' ? 'cite-web' : c.source === 'user_doc' ? 'cite-user' : 'cite-kb';
+      const href = c.source === 'web' && c.url ? c.url :
+                   (c.source === 'knowledge_base' && c.question_id ? `https://stackoverflow.com/questions/${c.question_id}` : '#');
+      
+      const a = document.createElement('a');
+      a.href = href;
+      if (href !== '#') {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener');
+      }
+      a.className = `cite-pill ${cls}`;
+      a.title = esc(c.title || c.source);
+      a.innerHTML = `${esc((c.title || c.source).slice(0, 45))}`;
+      
+      if (href === '#') {
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          toast(`Document: ${c.title || 'User doc'}`);
+        });
+      }
+      return a;
+    };
+    
+    firstFive.forEach(c => cRow.appendChild(buildPill(c)));
+    
+    if (remaining.length > 0) {
+      const extraContainer = document.createElement('div');
+      extraContainer.style.display = 'none';
+      remaining.forEach(c => extraContainer.appendChild(buildPill(c)));
+      cRow.appendChild(extraContainer);
+      
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'cite-pill';
+      toggleBtn.style.background = 'transparent';
+      toggleBtn.style.border = '1px dashed var(--border)';
+      toggleBtn.style.cursor = 'pointer';
+      toggleBtn.style.color = 'var(--text-3)';
+      toggleBtn.style.fontWeight = '500';
+      toggleBtn.style.display = 'inline-flex';
+      toggleBtn.style.alignItems = 'center';
+      toggleBtn.style.padding = '4px 10px';
+      toggleBtn.textContent = `+ Show ${remaining.length} more`;
+      
+      toggleBtn.addEventListener('click', () => {
+        const isOpen = extraContainer.style.display === 'contents';
+        if (isOpen) {
+          extraContainer.style.display = 'none';
+          toggleBtn.textContent = `+ Show ${remaining.length} more`;
+        } else {
+          extraContainer.style.display = 'contents';
+          toggleBtn.textContent = `− Show less`;
+        }
+      });
+      cRow.appendChild(toggleBtn);
+    }
+    
+    metaArea.appendChild(cRow);
+  }
+
+  const finalTrace = meta.pipeline_trace || meta.trace || [];
+  const actRow = document.createElement('div');
+  actRow.className = 'actions-row';
+  const rid = meta.responseId || meta.response_id || '';
+  actRow.innerHTML = `
+    <button class="action-btn" data-fb="up" data-rid="${rid}" aria-label="Helpful" title="Helpful">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M7 11v9"></path>
+        <path d="M4 20h11.5a2 2 0 0 0 2-1.7l1-7a2 2 0 0 0-2-2.3H13V4.5a1.5 1.5 0 0 0-1.5-1.5L7 11z"></path>
+      </svg>
+    </button>
+    <button class="action-btn" data-fb="down" data-rid="${rid}" aria-label="Not helpful" title="Not helpful">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M7 13V4"></path>
+        <path d="M4 4h11.5a2 2 0 0 1 2 1.7l1 7a2 2 0 0 1-2 2.3H13v4.5a1.5 1.5 0 0 1-1.5 1.5L7 13z"></path>
+      </svg>
+    </button>
+    ${finalTrace.length ? '<button class="action-btn trace-toggle-btn" aria-label="Pipeline" title="Pipeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14"></path><path d="M5 12h14"></path><path d="M5 17h14"></path></svg></button>' : ''}
+  `;
+  metaArea.appendChild(actRow);
+
+  actRow.querySelectorAll('[data-fb]').forEach(b => b.addEventListener('click', () => {
+    const rating = b.dataset.fb === 'up' ? 1 : -1;
+    authFetch('/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ response_id: rid, session_id: S.sessionId || '', rating })
+    });
+    actRow.querySelectorAll('[data-fb]').forEach(x => { x.classList.remove('voted-up', 'voted-down'); });
+    b.classList.add(rating === 1 ? 'voted-up' : 'voted-down');
+    toast(rating === 1 ? 'Thanks for your feedback!' : 'Feedback recorded');
+  }));
+
+  if (finalTrace.length) {
+    const traceBox = buildTraceBox(finalTrace);
+    metaArea.appendChild(traceBox);
+    actRow.querySelector('.trace-toggle-btn').addEventListener('click', function() {
+      traceBox.classList.toggle('open');
+    });
+  }
+}
+
+function addAIBubble(text, meta) {
+  const g = document.createElement('div'); g.className = 'msg-group';
+  const intent = meta.intent || 'rag';
+
+  const resp = document.createElement('div'); resp.className = 'ai-response';
+  resp.innerHTML = `
+    <div class="ai-label">
+      <span class="ai-name">PyMind</span>
+      <span class="intent-tag tag-${intent}">${intent}</span>
+      <span class="conf-label">${meta.confidence ? meta.confidence + ' confidence' : ''}</span>
+    </div>`;
+
+  const content = document.createElement('div'); content.className = 'ai-content';
+  content.innerHTML = renderMD(text);
+  highlightAll(content);
+  resp.appendChild(content);
+
+  const metaArea = document.createElement('div');
+  resp.appendChild(metaArea);
+  
+  populateResponseMetadata(metaArea, meta);
+
+  g.appendChild(resp);
+  msgBox.appendChild(g);
+  scrollDown();
+}
+
+function buildTraceBox(trace) {
+  const box = document.createElement('div'); box.className = 'trace-box';
+  const totalMs = trace.reduce((s,t) => s + (t.latency_ms||0), 0);
+  box.innerHTML = `
+    <div class="trace-header"><span>Pipeline Trace — ${trace.length} stages</span><span>${totalMs}ms</span></div>
+    <div class="trace-list">${trace.map((t,i) => `
+      <div class="trace-row">
+        <div class="trace-dot ${t.status==='success'?'ok':t.status==='warning'?'warn':t.status==='error'?'err':'ok'}"></div>
+        <span class="trace-num">${NUMS[i]||i+1}</span>
+        <span class="trace-name">${esc(t.label||t.node)}</span>
+        <span class="trace-detail">${esc(t.detail||'')}</span>
+        <span class="trace-ms">${t.latency_ms||0}ms</span>
+      </div>`).join('')}
+    </div>`;
+  return box;
+}
+
+/* ═══════════════════════════════════════════════════════
+   MARKDOWN RENDERER
+═══════════════════════════════════════════════════════ */
+function renderMD(md) {
+  if (!md) return '';
+  md = md.replace(/\r\n/g, '\n');
+  const lines = md.split('\n');
+  const processedLines = [];
+  for (let i = 0; i < lines.length; i++) {
+    const current = lines[i];
+    const prev = i > 0 ? lines[i-1] : null;
+    const isCurrentList = /^\s*([\*\-\+]|\d+\.)\s/.test(current);
+    const isPrevList = prev ? /^\s*([\*\-\+]|\d+\.)\s/.test(prev) : false;
+    if (isCurrentList && prev && prev.trim() !== '' && !isPrevList) {
+      processedLines.push('');
+    }
+    processedLines.push(current);
+  }
+  md = processedLines.join('\n');
+  const codeBlocks = [];
+  md = md.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push({ lang: lang || 'plaintext', code: code.trimEnd() });
+    return `%%CODEBLOCK_${idx}%%`;
+  });
+  const tables = [];
+  md = md.replace(/((?:^|[^\n])*(?:\|[^\n]*\|[^\n]*\n?)+)/g, (match) => {
+    const lines = match.trim().split('\n').filter(l => l.trim());
+    if (lines.length < 2) return match;
+    const sepIdx = lines.findIndex(l => {
+      const trimmed = l.trim();
+      return /^[\s\-:|]+$/.test(trimmed) && trimmed.includes('|') && trimmed.includes('-');
+    });
+    if (sepIdx < 0) return match;
+    const parseRow = r => {
+      let cells = r.split('|');
+      if (cells.length > 1 && cells[0].trim() === '') cells.shift();
+      if (cells.length > 0 && cells[cells.length-1].trim() === '') cells.pop();
+      return cells.map(c => c.trim());
+    };
+    const headers = parseRow(lines[sepIdx - 1] || lines[0]);
+    const dataRows = lines.slice(sepIdx + 1).map(parseRow);
+    let html = '<table><thead><tr>';
+    headers.forEach(h => { html += `<th>${inlineMD(h)}</th>`; });
+    html += '</tr></thead><tbody>';
+    dataRows.forEach(row => {
+      html += '<tr>';
+      row.forEach(cell => { html += `<td>${inlineMD(cell)}</td>`; });
+      for (let i = row.length; i < headers.length; i++) html += '<td></td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    const idx = tables.length; tables.push(html);
+    return `\n\n%%TABLE_${idx}%%\n\n`;
+  });
+  md = md.replace(/\n(#{1,4}\s)/g, '\n\n$1');
+  md = md.replace(/(%%TABLE_\d+%%)\n(?!\n)/g, '$1\n\n');
+  md = md.replace(/\n(%%TABLE_\d+%%)/g, '\n\n$1');
+  md = md.replace(/(%%CODEBLOCK_\d+%%)\n(?!\n)/g, '$1\n\n');
+  md = md.replace(/\n(%%CODEBLOCK_\d+%%)/g, '\n\n$1');
+  const blocks = md.split(/\n{2,}/);
+  let html = blocks.map(block => {
+    block = block.trim();
+    if (!block) return '';
+    if (block.startsWith('%%CODEBLOCK_')) return block;
+    if (block.startsWith('%%TABLE_')) return block;
+    if (/^####\s/.test(block)) return `<h4>${inlineMD(block.slice(5))}</h4>`;
+    if (/^###\s/.test(block)) return `<h3>${inlineMD(block.slice(4))}</h3>`;
+    if (/^##\s/.test(block)) return `<h3>${inlineMD(block.slice(3))}</h3>`;
+    if (/^#\s/.test(block)) return `<h3>${inlineMD(block.slice(2))}</h3>`;
+    if (/^---+$/.test(block)) return '<hr>';
+    if (/^>\s/.test(block)) return `<blockquote>${inlineMD(block.replace(/^>\s?/gm,''))}</blockquote>`;
+    if (/^\s*[\*\-\+]\s/.test(block)) {
+      const items = block.split('\n').filter(l => l.trim());
+      return '<ul>' + items.map(l => `<li>${inlineMD(l.replace(/^\s*[\*\-\+]\s+/,''))}</li>`).join('') + '</ul>';
+    }
+    if (/^\s*\d+\.\s/.test(block)) {
+      const items = block.split('\n').filter(l => l.trim());
+      return '<ol>' + items.map(l => `<li>${inlineMD(l.replace(/^\s*\d+\.\s+/,''))}</li>`).join('') + '</ol>';
+    }
+    return `<p>${inlineMD(block.replace(/\n/g, '<br>'))}</p>`;
+  }).join('\n');
+  html = html.replace(/%%CODEBLOCK_(\d+)%%/g, (_, i) => {
+    const b = codeBlocks[+i];
+    return `<div class="code-wrap"><div class="code-header"><span class="code-lang">${esc(b.lang)}</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><pre><code class="language-${esc(b.lang)}">${escCode(b.code)}</code></pre></div>`;
+  });
+  html = html.replace(/%%TABLE_(\d+)%%/g, (_, i) => tables[+i]);
+  return html;
+}
+
+function inlineMD(s) {
+  return s
+    .replace(/`([^`]+)`/g, (_, c) => `<code>${escCode(c)}</code>`)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/__(.+?)__/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+
+function highlightAll(el) {
+  el.querySelectorAll('pre code').forEach(b => { try { hljs.highlightElement(b); } catch {} });
+}
+
+function copyCode(btn) {
+  const code = btn.closest('.code-wrap').querySelector('code');
+  if (!code) return;
+  navigator.clipboard.writeText(code.textContent).then(() => {
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════════════════ */
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escCode(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function hideWelcome() { const w = $('welcome'); if (w) w.remove(); }
+function clearChat() { msgBox.innerHTML = ''; showWelcome(); }
+function showWelcome() {
+  msgBox.innerHTML = `
+    <div class="welcome" id="welcome">
+      <h2>What can I help you with?</h2>
+      <p>Enterprise Python AI Assistant powered by a 13-stage RAG pipeline. Ask any Python question.</p>
+      <div class="suggestions" id="suggestions">
+        <button class="suggestion" data-q="How do I implement a decorator in Python?">Implement a Python decorator</button>
+        <button class="suggestion" data-q="Explain Python's GIL and how to work around it">Explain Python's GIL</button>
+        <button class="suggestion" data-q="Write a retry decorator with exponential backoff">Write a retry decorator</button>
+        <button class="suggestion" data-q="TypeError: 'NoneType' object is not subscriptable — debug this">Debug NoneType error</button>
+      </div>
+    </div>`;
+}
+
+function scrollDown() { scroll.scrollTop = scroll.scrollHeight; }
+
+function setLoading(on) {
+  S.loading = on;
+  sendBtn.disabled = on;
+}
+
+function toast(msg, isErr) {
+  const t = document.createElement('div');
+  t.className = `toast ${isErr ? 'err' : 'ok'}`;
+  t.textContent = esc(msg);
+  $('toasts').appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+/* ═══════════════════════════════════════════════════════
+   START
+═══════════════════════════════════════════════════════ */
+init();
+</script>
+</body>
+</html>
