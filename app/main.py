@@ -178,7 +178,7 @@ async def signup(body: UserAuthSchema, response: Response):
         )
         await db.commit()
 
-    response.set_cookie(key="session_token", value=token, httponly=True, max_age=3600*24*7, samesite="lax")
+    response.set_cookie(key="session_token", value=token, httponly=True, max_age=3600*24*7, samesite="none", secure=True)
     return {"status": "registered", "username": username}
 
 
@@ -206,7 +206,7 @@ async def login(body: UserAuthSchema, response: Response):
         )
         await db.commit()
 
-    response.set_cookie(key="session_token", value=token, httponly=True, max_age=3600*24*7, samesite="lax")
+    response.set_cookie(key="session_token", value=token, httponly=True, max_age=3600*24*7, samesite="none", secure=True)
     return {"status": "logged_in", "username": username}
 
 
@@ -216,7 +216,7 @@ async def logout(response: Response, session_token: str | None = Cookie(default=
         async with connect_db() as db:
             await db.execute("DELETE FROM user_sessions WHERE token = ?", (session_token,))
             await db.commit()
-    response.delete_cookie("session_token")
+    response.delete_cookie("session_token", samesite="none", secure=True)
     return {"status": "logged_out"}
 
 
