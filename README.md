@@ -1,3 +1,12 @@
+---
+title: PyMind Assistant
+emoji: 🐍
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+---
+
 # 🐍 PyMind — Enterprise Python AI Assistant
 
 > A premium, production-grade 12-stage RAG-powered Python assistant — grounded in 607K+ Stack Overflow posts, custom user document uploads, and dynamic Tavily Web Search fallback.
